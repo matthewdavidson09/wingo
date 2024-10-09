@@ -1,14 +1,15 @@
-package main
+package uptime
 
 import (
 	"embed"
 	"fmt"
 	"log"
 	"os/exec"
-	"syscall"
+	"strings"
 	"time"
 
 	"github.com/spf13/viper"
+	"golang.org/x/sys/windows"
 	"gopkg.in/toast.v1"
 )
 
@@ -25,8 +26,14 @@ var configFile embed.FS
 
 // LoadConfig loads configuration from the embedded config.yaml file
 func LoadConfig() (*Configuration, error) {
+	f, err := configFile.Open("config.yaml")
+	if err != nil {
+		return nil, fmt.Errorf("error opening embedded config file: %w", err)
+	}
+	defer f.Close()
+
 	viper.SetConfigType("yaml")
-	err := viper.ReadConfig(embed.NewDecoder(configFile, "config.yaml"))
+	err = viper.ReadConfig(f) // Read directly from the opened file
 	if err != nil {
 		return nil, fmt.Errorf("error reading embedded config file: %w", err)
 	}
@@ -42,10 +49,8 @@ func LoadConfig() (*Configuration, error) {
 
 // GetSystemUptime gets the system uptime in milliseconds using GetTickCount64
 func GetSystemUptime() (time.Duration, error) {
-	kernel32 := syscall.NewLazyDLL("kernel32.dll")
-	getTickCount64 := kernel32.NewProc("GetTickCount64")
-
-	ret, _, err := getTickCount64.Call()
+	proc := windows.NewLazySystemDLL("kernel32.dll").NewProc("GetTickCount64")
+	ret, _, err := proc.Call()
 	if ret == 0 {
 		return 0, fmt.Errorf("GetTickCount64 failed: %w", err)
 	}
@@ -63,20 +68,29 @@ func ForceRestart(config *Configuration) {
 
 		notification := toast.Notification{
 			AppID:   "Restart Notification",
-			Title:   "Urgent - Restart Notification",
+			Title:   "Restart Notification - Urgent",
 			Message: message,
 		}
 
 		if err := notification.Push(); err != nil {
-			log.Printf("Failed to push notification: %v", err)
+			log.Printf("Failed to push notification: %v", err) // Log error and continue
 		}
 
-		time.Sleep(1 * time.Minute)
+		time.Sleep(1 * time.Minute) // Wait 1 minute between updates
 	}
 
-	cmd := exec.Command(config.RestartCommand)
-	if err := cmd.Run(); err != nil {
-		log.Fatalf("Failed to restart the system: %v", err)
+	// Restart immediately after countdown
+	parts := strings.Split(config.RestartCommand, " ")
+	cmdName := parts[0]
+	cmdArgs := parts[1:]
+
+	// Run the PowerShell command
+	cmd := exec.Command(cmdName, cmdArgs...)
+	output, err := cmd.CombinedOutput() // Capture both stdout and stderr
+	if err != nil {
+		log.Fatalf("Failed to restart the system: %v, Output: %s", err, output)
+	} else {
+		log.Printf("Restart command executed successfully. Output: %s", output)
 	}
 }
 

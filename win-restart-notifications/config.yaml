@@ -1,6 +1,4 @@
-# App is compiled with these by default, but we can also override them
-# with a config.yaml in the same directory as the .exe
-uptime_threshold_warning: 7   # Days before warning
-uptime_threshold_critical: 11  # Days before forced restart
-countdown_minutes: 10         # Countdown before forced restart
-restart_command: "shutdown /r /t 0"  # Command to execute for restart
+uptime_threshold_warning: 7
+uptime_threshold_critical: 11
+countdown_minutes: 1
+restart_command: "powershell -Command Restart-Computer -Force"
