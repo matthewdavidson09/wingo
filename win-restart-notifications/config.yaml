@@ -1,4 +1,4 @@
 uptime_threshold_warning: 7
-uptime_threshold_critical: 11
-countdown_minutes: 1
+uptime_threshold_critical: 10
+countdown_minutes: 10
 restart_command: "powershell -Command Restart-Computer -Force"

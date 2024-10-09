@@ -1,4 +1,4 @@
-package uptime
+package main
 
 import (
 	"embed"
